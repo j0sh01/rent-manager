@@ -11,6 +11,10 @@ import Index from "./pages/Index";
 import { Login } from "./pages/Login";
 import { AuthCallback } from "./pages/AuthCallback";
 import { Properties } from "./pages/Properties";
+import { Rentals } from "./pages/Rentals";
+import { Payments } from "./pages/Payments";
+import { Tenants } from "./pages/Tenants";
+import { Settings } from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -51,10 +55,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <div className="text-center py-12">
-                      <h1 className="text-2xl font-bold text-gray-900">Rentals</h1>
-                      <p className="text-gray-600 mt-2">Rental management coming soon</p>
-                    </div>
+                    <Rentals />
                   </Layout>
                 </ProtectedRoute>
               } 
@@ -64,10 +65,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <div className="text-center py-12">
-                      <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-                      <p className="text-gray-600 mt-2">Payment management coming soon</p>
-                    </div>
+                    <Payments />
                   </Layout>
                 </ProtectedRoute>
               } 
@@ -77,10 +75,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <div className="text-center py-12">
-                      <h1 className="text-2xl font-bold text-gray-900">Tenants</h1>
-                      <p className="text-gray-600 mt-2">Tenant management coming soon</p>
-                    </div>
+                    <Tenants />
                   </Layout>
                 </ProtectedRoute>
               } 
@@ -90,10 +85,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <div className="text-center py-12">
-                      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-                      <p className="text-gray-600 mt-2">Settings coming soon</p>
-                    </div>
+                    <Tenants />
                   </Layout>
                 </ProtectedRoute>
               } 

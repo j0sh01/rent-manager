@@ -126,7 +126,7 @@ export const Properties = () => {
                   <span className="text-gray-600">Type:</span>
                   <span className="font-medium">{property.property_type}</span>
                 </div>
-                {property.bedrooms && (
+                {property.bedrooms !== undefined && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Bedrooms:</span>
                     <span className="font-medium">{property.bedrooms}</span>

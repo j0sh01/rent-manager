@@ -4,69 +4,21 @@ import { Building, Home, CreditCard, Users } from 'lucide-react';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { apiClient } from '@/lib/api-client';
-import { DashboardStats, ActivityItem } from '@/types';
 
 export const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
-    queryFn: async (): Promise<DashboardStats> => {
-      // Fetch properties
-      const properties = await apiClient.getDocList('Property', {
-        fields: ['name', 'status'],
-      });
-
-      // Fetch rentals
-      const rentals = await apiClient.getDocList('Rental', {
-        fields: ['name', 'status', 'monthly_rent'],
-      });
-
-      // Fetch payments
-      const payments = await apiClient.getDocList('Payment', {
-        fields: ['name', 'amount', 'status', 'payment_date'],
-        filters: [['payment_date', '>=', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()]],
-      });
-
-      // Calculate stats
-      const total_properties = properties.data?.length || 0;
-      const occupied_properties = properties.data?.filter((p: any) => p.status === 'Occupied').length || 0;
-      const available_properties = properties.data?.filter((p: any) => p.status === 'Available').length || 0;
-      const total_rentals = rentals.data?.length || 0;
-      const active_rentals = rentals.data?.filter((r: any) => r.status === 'Active').length || 0;
-      const monthly_revenue = payments.data?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
-      const pending_payments = payments.data?.filter((p: any) => p.status === 'Pending').length || 0;
-
-      return {
-        total_properties,
-        occupied_properties,
-        available_properties,
-        total_rentals,
-        active_rentals,
-        monthly_revenue,
-        pending_payments,
-        maintenance_requests: 0, // Mock data for now
-      };
+    queryFn: async () => {
+      const response = await apiClient.getDashboardStats();
+      return response.data;
     },
   });
 
   const { data: activities } = useQuery({
     queryKey: ['recent-activities'],
-    queryFn: async (): Promise<ActivityItem[]> => {
-      // This would typically come from a dedicated API endpoint
-      // For now, we'll create mock activities based on recent data
-      const recentPayments = await apiClient.getDocList('Payment', {
-        fields: ['name', 'amount', 'status', 'payment_date', 'rental'],
-        limit: 5,
-        order_by: 'creation desc',
-      });
-
-      return recentPayments.data?.map((payment: any, index: number) => ({
-        id: payment.name,
-        type: 'payment' as const,
-        title: `Payment Received`,
-        description: `$${payment.amount} payment for rental ${payment.rental}`,
-        timestamp: payment.payment_date,
-        status: payment.status,
-      })) || [];
+    queryFn: async () => {
+      const response = await apiClient.getRecentActivities();
+      return response.data;
     },
   });
 
@@ -155,7 +107,7 @@ export const Dashboard = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Maintenance</span>
-                <span className="font-medium text-yellow-600">0</span>
+                <span className="font-medium text-yellow-600">{stats?.maintenance_requests || 0}</span>
               </div>
             </div>
           </div>
