@@ -11,7 +11,7 @@ export interface Property {
   name: string;
   property_name: string;
   address: string;
-  property_type: 'Apartment' | 'House' | 'Commercial' | 'Condo';
+  property_type: 'Apartment' | 'House' | 'Commercial' | 'Condo' | 'Loft' | 'Studio' | 'Penthouse';
   bedrooms?: number;
   bathrooms?: number;
   square_feet?: number;
@@ -33,7 +33,9 @@ export interface Rental {
   end_date: string;
   monthly_rent: number;
   security_deposit: number;
+  deposit: number;
   status: 'Active' | 'Terminated' | 'Pending' | 'Expired';
+  lease_terms?: string;
   creation?: string;
   modified?: string;
 }
@@ -42,11 +44,13 @@ export interface Payment {
   name: string;
   rental: string;
   payment_date: string;
+  due_date: string;
   amount: number;
   payment_type: 'Rent' | 'Security Deposit' | 'Late Fee' | 'Maintenance' | 'Other';
-  payment_method: 'Cash' | 'Check' | 'Bank Transfer' | 'Credit Card' | 'Online Payment';
+  payment_method: 'Cash' | 'Check' | 'Bank Transfer' | 'Credit Card' | 'Online Payment' | 'ACH' | '';
   status: 'Paid' | 'Pending' | 'Failed' | 'Refunded';
   reference_number?: string;
+  reference?: string;
   creation?: string;
   modified?: string;
 }

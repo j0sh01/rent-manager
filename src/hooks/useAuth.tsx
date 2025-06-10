@@ -15,6 +15,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: () => void;
   logout: () => void;
+  handleAuthCallback: (code: string, state: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,6 +56,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('mock_user');
   };
 
+  const handleAuthCallback = async (code: string, state: string): Promise<void> => {
+    // Mock auth callback - simulate processing OAuth callback
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    login(); // Just login the mock user for now
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -62,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoading,
       login,
       logout,
+      handleAuthCallback,
     }}>
       {children}
     </AuthContext.Provider>
