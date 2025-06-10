@@ -1,4 +1,3 @@
-
 // Frappe API client with OAuth2 integration
 class FrappeAPIClient {
   private baseURL: string;
@@ -8,10 +7,10 @@ class FrappeAPIClient {
   private tokenStorage: Storage;
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_FRAPPE_URL || 'http://localhost:8000';
-    this.clientId = process.env.REACT_APP_CLIENT_ID || '';
-    this.clientSecret = process.env.REACT_APP_CLIENT_SECRET || '';
-    this.redirectUri = process.env.REACT_APP_REDIRECT_URI || `${window.location.origin}/auth/callback`;
+    this.baseURL = import.meta.env.VITE_FRAPPE_URL || 'http://localhost:8000';
+    this.clientId = import.meta.env.VITE_CLIENT_ID || '';
+    this.clientSecret = import.meta.env.VITE_CLIENT_SECRET || '';
+    this.redirectUri = import.meta.env.VITE_REDIRECT_URI || `${window.location.origin}/auth/callback`;
     this.tokenStorage = localStorage;
   }
 
