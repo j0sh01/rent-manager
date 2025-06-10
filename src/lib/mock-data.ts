@@ -1,4 +1,3 @@
-
 import { Property, Rental, Payment, DashboardStats, ActivityItem } from '@/types';
 
 export const mockProperties: Property[] = [
@@ -14,6 +13,11 @@ export const mockProperties: Property[] = [
     description: 'Beautiful 2-bedroom apartment with city views',
     square_feet: 1200,
     amenities: ['Pool', 'Gym', 'Parking'],
+    images: [
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop'
+    ],
   },
   {
     name: 'PROP-002',
@@ -27,6 +31,10 @@ export const mockProperties: Property[] = [
     description: 'Modern loft in downtown area',
     square_feet: 900,
     amenities: ['Rooftop Access', 'Concierge'],
+    images: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800&h=600&fit=crop'
+    ],
   },
   {
     name: 'PROP-003',
@@ -40,6 +48,11 @@ export const mockProperties: Property[] = [
     description: 'Family house with garden and garage',
     square_feet: 1800,
     amenities: ['Garden', 'Garage', 'Fireplace'],
+    images: [
+      'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&h=600&fit=crop'
+    ],
   },
   {
     name: 'PROP-004',
@@ -53,6 +66,10 @@ export const mockProperties: Property[] = [
     description: 'Cozy studio apartment near downtown',
     square_feet: 600,
     amenities: ['In-unit Laundry'],
+    images: [
+      'https://images.unsplash.com/photo-1536376072261-38c75010e6c9?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop'
+    ],
   },
   {
     name: 'PROP-005',
@@ -66,6 +83,10 @@ export const mockProperties: Property[] = [
     description: 'Riverside condo with water views',
     square_feet: 1100,
     amenities: ['Balcony', 'River View', 'Parking'],
+    images: [
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop'
+    ],
   },
   {
     name: 'PROP-006',
@@ -79,6 +100,11 @@ export const mockProperties: Property[] = [
     description: 'Luxury penthouse with ocean views',
     square_feet: 2200,
     amenities: ['Ocean View', 'Private Terrace', 'Concierge'],
+    images: [
+      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1505873242700-f289a29e1e0f?w=800&h=600&fit=crop'
+    ],
   },
 ];
 

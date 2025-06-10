@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@/components/ui/carousel';
 import { apiClient } from '@/lib/api-client';
 import { Property } from '@/types';
 
@@ -106,7 +107,35 @@ export const Properties = () => {
 
       <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
         {filteredProperties.map((property) => (
-          <Card key={property.name} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer">
+          <Card key={property.name} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer overflow-hidden">
+            {property.images && property.images.length > 0 && (
+              <div className="h-48 relative">
+                {property.images.length === 1 ? (
+                  <img 
+                    src={property.images[0]} 
+                    alt={property.property_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Carousel className="w-full h-full">
+                    <CarouselContent>
+                      {property.images.map((image, index) => (
+                        <CarouselItem key={index}>
+                          <img 
+                            src={image} 
+                            alt={`${property.property_name} - Image ${index + 1}`}
+                            className="w-full h-48 object-cover"
+                          />
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="left-2" />
+                    <CarouselNext className="right-2" />
+                  </Carousel>
+                )}
+              </div>
+            )}
+            
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
