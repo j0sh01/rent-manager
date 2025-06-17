@@ -32,10 +32,10 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
       <AuthProvider>
         <BrowserRouter>
+          <Toaster />
+          <Sonner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -85,7 +85,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <Tenants />
+                    <Settings />
                   </Layout>
                 </ProtectedRoute>
               } 

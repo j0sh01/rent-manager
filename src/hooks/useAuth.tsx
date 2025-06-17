@@ -1,16 +1,12 @@
-
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-interface User {
-  name: string;
-  full_name: string;
-  email: string;
-  user_image?: string;
-  roles: string[];
-}
+// src/hooks/useAuth.tsx
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { exchangeCodeForToken, fetchUserProfile, getAuthorizeUrl } from '@/Integration/frappe/client';
+import { toast } from '@/components/ui/sonner';
+import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
-  user: User | null;
+  user: any;
+  accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: () => void;
@@ -18,59 +14,98 @@ interface AuthContextType {
   handleAuthCallback: (code: string, state: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading and check for existing session
-    const timer = setTimeout(() => {
-      const savedUser = localStorage.getItem('mock_user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    // Check for existing session on mount
+    const storedToken = localStorage.getItem('access_token');
+    const storedUser = localStorage.getItem('user');
+    
+    if (storedToken && storedUser) {
+      setAccessToken(storedToken);
+      setUser(JSON.parse(storedUser));
+      
+      // Also set the token in the API client
+      apiClient.setAccessToken(storedToken);
+    }
+    
+    setIsLoading(false);
   }, []);
 
   const login = () => {
-    // Mock user data
-    const mockUser: User = {
-      name: 'john.doe@example.com',
-      full_name: 'John Doe',
-      email: 'john.doe@example.com',
-      user_image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      roles: ['System Manager', 'Property Manager']
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem('mock_user', JSON.stringify(mockUser));
+    const state = Math.random().toString(36).substring(2);
+    localStorage.setItem('oauth_state', state);
+    window.location.href = getAuthorizeUrl(state);
   };
 
   const logout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('oauth_state');
+    setAccessToken(null);
     setUser(null);
-    localStorage.removeItem('mock_user');
+    apiClient.logout();
+    window.location.href = '/login';
   };
 
-  const handleAuthCallback = async (code: string, state: string): Promise<void> => {
-    // Mock auth callback - simulate processing OAuth callback
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    login(); // Just login the mock user for now
+  const handleAuthCallback = async (code: string, state: string) => {
+    const storedState = localStorage.getItem('oauth_state');
+    if (state !== storedState) {
+      throw new Error('State mismatch');
+    }
+
+    try {
+      interface TokenResponse {
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+        token_type: string;
+        scope: string;
+      }
+      
+      const tokenData = await exchangeCodeForToken(code) as TokenResponse;
+      const profile = await fetchUserProfile(tokenData.access_token);
+      
+      setAccessToken(tokenData.access_token);
+      setUser(profile);
+
+      // Store token in localStorage
+      localStorage.setItem('access_token', tokenData.access_token);
+      localStorage.setItem('refresh_token', tokenData.refresh_token);
+      localStorage.setItem('user', JSON.stringify(profile));
+      
+      // Also set the token in the API client
+      apiClient.setAccessToken(tokenData.access_token);
+      
+      console.log('Authentication successful, token stored');
+    } catch (error) {
+      console.error('Authentication error:', error);
+      toast("Authentication failed", {
+        description: "Could not complete the login process",
+        style: { backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))' }
+      });
+      throw error;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated: !!user,
-      isLoading,
-      login,
-      logout,
-      handleAuthCallback,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        accessToken,
+        isAuthenticated: !!accessToken,
+        isLoading,
+        login,
+        logout,
+        handleAuthCallback,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -78,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (context === null) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

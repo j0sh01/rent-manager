@@ -1,5 +1,4 @@
-
-import { LogOut, User, Bell, Menu } from 'lucide-react';
+import { LogOut, User, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,6 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -34,12 +34,7 @@ export const Header = ({ onToggleSidebar }: HeaderProps) => {
       </div>
 
       <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-            3
-          </span>
-        </Button>
+        <NotificationDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
