@@ -12,6 +12,8 @@ import { formatFrappeImageUrl } from '@/Integration/frappe/client';
 import { downloadRentalPDF } from '@/Integration/frappe/client';
 import { toast } from '@/components/ui/sonner';
 import { RentalFilters, RentalFilters as RentalFiltersType } from '@/components/RentalFilters';
+import { PaymentHistoryModal } from '@/components/PaymentHistoryModal';
+import { CreatePaymentModal } from '@/components/CreatePaymentModal';
 
 // Helper function to format dates safely
 const formatDate = (dateString: string | undefined): string => {
@@ -49,6 +51,22 @@ export const Rentals = () => {
     endDate: undefined,
     minRent: '',
     maxRent: ''
+  });
+  const [paymentHistoryModal, setPaymentHistoryModal] = useState<{
+    isOpen: boolean;
+    rentalId: string;
+    rentalName: string;
+  }>({
+    isOpen: false,
+    rentalId: '',
+    rentalName: ''
+  });
+  const [createPaymentModal, setCreatePaymentModal] = useState<{
+    isOpen: boolean;
+    rental: Rental | null;
+  }>({
+    isOpen: false,
+    rental: null
   });
   const { isAuthenticated, accessToken } = useAuth();
 
@@ -165,6 +183,8 @@ export const Rentals = () => {
         return 'bg-yellow-100 text-yellow-800';
       case 'Terminated':
         return 'bg-gray-100 text-gray-800';
+      case 'Not Paid':
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -192,6 +212,41 @@ export const Rentals = () => {
     } finally {
       setDownloadingPDF(null);
     }
+  };
+
+  const handlePaymentHistory = (rental: Rental) => {
+    const rentalName = rental.property_details?.title || rental.property_name || rental.property || rental.name;
+    setPaymentHistoryModal({
+      isOpen: true,
+      rentalId: rental.name,
+      rentalName: rentalName
+    });
+  };
+
+  const closePaymentHistoryModal = () => {
+    setPaymentHistoryModal({
+      isOpen: false,
+      rentalId: '',
+      rentalName: ''
+    });
+  };
+
+  const handleCreatePayment = (rental: Rental) => {
+    setCreatePaymentModal({
+      isOpen: true,
+      rental: rental
+    });
+  };
+
+  const closeCreatePaymentModal = () => {
+    setCreatePaymentModal({
+      isOpen: false,
+      rental: null
+    });
+  };
+
+  const handlePaymentCreated = () => {
+    // The query will be invalidated by the mutation in the modal
   };
 
   if (!isAuthenticated) {
@@ -387,11 +442,22 @@ export const Rentals = () => {
                 </div>
               </div>
               <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
+                {rental.status === 'Not Paid' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleCreatePayment(rental)}
+                    className="border-green-200 text-green-700 hover:bg-green-50"
+                  >
+                    <DollarSign className="h-4 w-4 mr-1" />
+                    Create Payment
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => handleViewContract(rental.name)} disabled={downloadingPDF === rental.name}>
                   <FileText className="h-4 w-4 mr-1" />
                   {downloadingPDF === rental.name ? 'Downloading...' : 'View Contract'}
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => handlePaymentHistory(rental)}>
                   <DollarSign className="h-4 w-4 mr-1" />
                   Payment History
                 </Button>
@@ -416,6 +482,22 @@ export const Rentals = () => {
           </Button>
         </div>
       )}
+
+      {/* Payment History Modal */}
+      <PaymentHistoryModal
+        isOpen={paymentHistoryModal.isOpen}
+        onClose={closePaymentHistoryModal}
+        rentalId={paymentHistoryModal.rentalId}
+        rentalName={paymentHistoryModal.rentalName}
+      />
+
+      {/* Create Payment Modal */}
+      <CreatePaymentModal
+        isOpen={createPaymentModal.isOpen}
+        onClose={closeCreatePaymentModal}
+        rental={createPaymentModal.rental}
+        onSuccess={handlePaymentCreated}
+      />
     </div>
   );
 };

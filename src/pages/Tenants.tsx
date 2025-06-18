@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, Filter, User, Mail, Phone, MapPin, Calendar, Shield } from 'lucide-react';
+import { Plus, Search, Filter, User, Mail, Phone, MapPin, Calendar, Shield, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,9 @@ import { toast } from '@/components/ui/sonner';
 import { TenantModal } from '@/components/TenantModal';
 import { AddTenantModal } from '@/components/AddTenantModal';
 import { ContactModal } from '@/components/ContactModal';
+import { AssignPropertyModal } from '@/components/AssignPropertyModal';
 import { TenantFilters, TenantFilters as TenantFiltersType } from '@/components/TenantFilters';
+import { getRentalsByTenant } from '@/Integration/frappe/client';
 
 export const Tenants = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +23,8 @@ export const Tenants = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactTenant, setContactTenant] = useState<Tenant | null>(null);
+  const [isAssignPropertyModalOpen, setIsAssignPropertyModalOpen] = useState(false);
+  const [assignPropertyTenant, setAssignPropertyTenant] = useState<Tenant | null>(null);
   const [filters, setFilters] = useState<TenantFiltersType>({
     search: '',
     status: 'all',
@@ -41,9 +45,33 @@ export const Tenants = () => {
       console.log('📦 API response:', response);
       console.log('📋 Tenants data:', response.data);
       console.log('📊 Number of tenants:', response.data?.length || 0);
+      
       if (response.data && response.data.length > 0) {
         console.log('📄 First tenant example:', response.data[0]);
+        
+        // Fetch rental information for each tenant
+        const tenantsWithRentals = await Promise.all(
+          response.data.map(async (tenant: any) => {
+            try {
+              const rentals = await getRentalsByTenant(accessToken!, tenant.name);
+              console.log(`🏠 Found ${rentals.length} rentals for tenant ${tenant.name}:`, rentals);
+              return {
+                ...tenant,
+                rentals: rentals
+              };
+            } catch (error) {
+              console.error(`❌ Error fetching rentals for tenant ${tenant.name}:`, error);
+              return {
+                ...tenant,
+                rentals: []
+              };
+            }
+          })
+        );
+        
+        return tenantsWithRentals;
       }
+      
       return response.data || [];
     },
     enabled: isAuthenticated, // Only run query if authenticated
@@ -101,6 +129,20 @@ export const Tenants = () => {
   const handleCloseContactModal = () => {
     setIsContactModalOpen(false);
     setContactTenant(null);
+  };
+
+  const handleAssignProperty = (tenant: Tenant) => {
+    setAssignPropertyTenant(tenant);
+    setIsAssignPropertyModalOpen(true);
+  };
+
+  const handleCloseAssignPropertyModal = () => {
+    setIsAssignPropertyModalOpen(false);
+    setAssignPropertyTenant(null);
+  };
+
+  const handlePropertyAssigned = () => {
+    refetch();
   };
 
   const handleFiltersChange = (newFilters: TenantFiltersType) => {
@@ -304,14 +346,21 @@ export const Tenants = () => {
         {filteredTenants.map((tenant, index) => (
           <Card key={tenant.name} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer">
             <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg font-semibold text-gray-900 mb-1">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg font-semibold text-gray-900 mb-1 break-words">
                     {tenant.full_name}
                   </CardTitle>
-                  <div className="flex items-center text-sm text-gray-600 mb-2">
-                    <Shield className="h-4 w-4 mr-1" />
-                    {tenant.user_type || 'User'}
+                  <div className="flex flex-wrap items-center text-sm text-gray-600 mb-2 gap-1">
+                    <div className="flex items-center">
+                      <Shield className="h-4 w-4 mr-1 flex-shrink-0" />
+                      <span className="truncate">{tenant.user_type || 'User'}</span>
+                    </div>
+                    {tenant.rentals && tenant.rentals.length > 0 && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full whitespace-nowrap">
+                        {tenant.rentals.length} propert{tenant.rentals.length === 1 ? 'y' : 'ies'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <Badge className={getStatusColor(tenant.enabled)}>
@@ -331,6 +380,43 @@ export const Tenants = () => {
                     <span className="text-gray-600">{tenant.phone}</span>
                   </div>
                 )}
+                
+                {/* Assigned Properties Section */}
+                {tenant.rentals && tenant.rentals.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center text-sm mb-2">
+                      <Home className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                      <span className="text-gray-600 font-medium">Assigned Properties</span>
+                    </div>
+                    <div className="space-y-2">
+                      {tenant.rentals.map((rental: any) => (
+                        <div key={rental.name} className="bg-gray-50 rounded-lg p-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                            <span className="font-medium text-gray-800 text-xs break-words">
+                              {rental.property_name || rental.property || 'Unknown Property'}
+                            </span>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs whitespace-nowrap ${
+                                rental.status === 'Active' ? 'border-green-200 text-green-700' :
+                                rental.status === 'Expired' ? 'border-red-200 text-red-700' :
+                                rental.status === 'Not Paid' ? 'border-yellow-200 text-yellow-700' :
+                                'border-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {rental.status}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-gray-600 mt-1 gap-1">
+                            <span className="whitespace-nowrap">TZS {(rental.monthly_rent_tzs || 0).toLocaleString()}/month</span>
+                            <span className="text-xs break-words">{formatDate(rental.start_date)} - {formatDate(rental.end_date)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between text-sm pt-2 border-t">
                   <span className="text-gray-600">User ID:</span>
                   <span className="font-medium text-gray-800">{tenant.name}</span>
@@ -344,14 +430,18 @@ export const Tenants = () => {
                   <span className="font-medium">{formatDate(tenant.modified)}</span>
                 </div>
               </div>
-              <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
-                <Button variant="outline" size="sm" onClick={() => handleViewProfile(tenant)}>
-                  <User className="h-4 w-4 mr-1" />
-                  View Profile
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+                <Button variant="outline" size="sm" onClick={() => handleAssignProperty(tenant)} className="flex-1 min-w-0">
+                  <Home className="h-4 w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Assign Property</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => handleContact(tenant)}>
-                  <Mail className="h-4 w-4 mr-1" />
-                  Contact
+                <Button variant="outline" size="sm" onClick={() => handleViewProfile(tenant)} className="flex-1 min-w-0">
+                  <User className="h-4 w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">View Profile</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleContact(tenant)} className="flex-1 min-w-0">
+                  <Mail className="h-4 w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Contact</span>
                 </Button>
               </div>
             </CardContent>
@@ -397,6 +487,14 @@ export const Tenants = () => {
         tenant={contactTenant}
         isOpen={isContactModalOpen}
         onClose={handleCloseContactModal}
+      />
+      
+      {/* Assign Property Modal */}
+      <AssignPropertyModal
+        tenant={assignPropertyTenant}
+        isOpen={isAssignPropertyModalOpen}
+        onClose={handleCloseAssignPropertyModal}
+        onSuccess={handlePropertyAssigned}
       />
     </div>
   );

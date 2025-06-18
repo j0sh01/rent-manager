@@ -12,6 +12,7 @@ interface AuthContextType {
   login: () => void;
   logout: () => void;
   handleAuthCallback: (code: string, state: string) => Promise<void>;
+  refetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -20,6 +21,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const refetchUser = async () => {
+    if (!accessToken) return;
+    
+    try {
+      const profile = await fetchUserProfile(accessToken);
+      setUser(profile);
+      localStorage.setItem('user', JSON.stringify(profile));
+    } catch (error) {
+      console.error('Error refetching user:', error);
+    }
+  };
 
   useEffect(() => {
     // Check for existing session on mount
@@ -104,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         handleAuthCallback,
+        refetchUser,
       }}
     >
       {children}

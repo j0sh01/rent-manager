@@ -118,10 +118,13 @@ class FrappeAPIClient {
   async getRecentActivities(): Promise<any> {
     try {
       const activities = await frappeClient.getRecentActivities(this.getToken());
-      return { data: activities };
+      // Ensure activities is always an array
+      const activitiesArray = Array.isArray(activities) ? activities : [];
+      return { data: activitiesArray };
     } catch (error) {
       console.error('Error fetching recent activities:', error);
-      return { data: new MockFrappeAPIClient().getRecentActivities() };
+      const mockResult = await new MockFrappeAPIClient().getRecentActivities();
+      return { data: mockResult.data || [] };
     }
   }
 

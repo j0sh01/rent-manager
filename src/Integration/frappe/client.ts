@@ -136,6 +136,134 @@ export async function getAllPayments(accessToken: string) {
   }
 }
 
+export async function getPaymentsByRental(accessToken: string, rentalId: string) {
+  try {
+    console.log('Fetching payments for rental:', rentalId);
+    const response = await axios.get(`${FRAPPE_BASE_URL}/api/resource/Payment`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params: {
+        filters: JSON.stringify([['rental', '=', rentalId]]),
+        fields: JSON.stringify([
+          "name", "rental", "payment_date", "tenant", 
+          "amount_tzs", "payment_method", "start_date", "end_date",
+          "docstatus", "creation", "modified"
+        ]),
+        limit_page_length: 1000
+      }
+    });
+    
+    console.log('Payments by rental API response:', response.data);
+    return (response.data as any).data || [];
+  } catch (error) {
+    console.error('Error fetching payments by rental:', error);
+    
+    // Log more details about the error
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any;
+      console.error('Response status:', axiosError.response?.status);
+      console.error('Response data:', axiosError.response?.data);
+    }
+    
+    return [];
+  }
+}
+
+export async function getRentalsByTenant(accessToken: string, tenantId: string) {
+  try {
+    console.log('Fetching rentals for tenant:', tenantId);
+    const response = await axios.get(`${FRAPPE_BASE_URL}/api/resource/Rental`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params: {
+        filters: JSON.stringify([['tenant', '=', tenantId]]),
+        fields: JSON.stringify([
+          "name", "property", "property_name", "tenant", "tenant_name",
+          "status", "frequency", "monthly_rent_tzs", "start_date", "end_date",
+          "total_rent_tzs", "docstatus", "creation", "modified"
+        ]),
+        limit_page_length: 1000
+      }
+    });
+    
+    console.log('Rentals by tenant API response:', response.data);
+    return (response.data as any).data || [];
+  } catch (error) {
+    console.error('Error fetching rentals by tenant:', error);
+    
+    // Log more details about the error
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any;
+      console.error('Response status:', axiosError.response?.status);
+      console.error('Response data:', axiosError.response?.data);
+    }
+    
+    return [];
+  }
+}
+
+export async function createPayment(accessToken: string, paymentData: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    console.log('Creating payment with data:', paymentData);
+    
+    const response = await fetch(`${FRAPPE_BASE_URL}/api/resource/Payment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        data: paymentData
+      })
+    });
+
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Failed to create payment');
+    }
+
+    console.log('Payment created successfully:', responseData);
+    return { success: true, data: responseData.data };
+    
+  } catch (error) {
+    console.error('Error creating payment:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to create payment' };
+  }
+}
+
+export async function updateRentalStatus(accessToken: string, rentalName: string, status: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('Updating rental status:', rentalName, 'to', status);
+    
+    const response = await fetch(`${FRAPPE_BASE_URL}/api/resource/Rental/${rentalName}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        data: { status: status }
+      })
+    });
+
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Failed to update rental status');
+    }
+
+    console.log('Rental status updated successfully:', responseData);
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error updating rental status:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to update rental status' };
+  }
+}
+
 // Helper function to upload a file to Frappe and get the file URL
 async function uploadFileToFrappe(accessToken: string, fileData: { filename: string; content: string }, attachedToName?: string): Promise<string | null> {
   try {
@@ -159,10 +287,8 @@ async function uploadFileToFrappe(accessToken: string, fileData: { filename: str
     formData.append('is_private', '0');
     formData.append('from_form', '1');
     
-    // Add attached_to_name if provided
-    if (attachedToName) {
-      formData.append('attached_to_name', attachedToName);
-    }
+    // Don't attach to document initially - upload as standalone file
+    // We'll update the Property document with the file URL separately
     
     console.log('📤 Form data prepared:', {
       filename: fileData.filename,
@@ -170,7 +296,6 @@ async function uploadFileToFrappe(accessToken: string, fileData: { filename: str
       fieldname: 'image',
       is_private: '0',
       from_form: '1',
-      attached_to_name: attachedToName || 'None',
       blobSize: blob.size,
       blobType: blob.type
     });
@@ -193,7 +318,7 @@ async function uploadFileToFrappe(accessToken: string, fileData: { filename: str
       // Try alternative upload method if 417 error
       if (response.status === 417) {
         console.log('🔄 Trying alternative upload method...');
-        return await uploadFileAlternative(accessToken, fileData, attachedToName);
+        return await uploadFileAlternative(accessToken, fileData);
       }
       
       return null;
@@ -215,9 +340,9 @@ async function uploadFileToFrappe(accessToken: string, fileData: { filename: str
 }
 
 // Alternative upload method using different approach
-async function uploadFileAlternative(accessToken: string, fileData: { filename: string; content: string }, attachedToName?: string): Promise<string | null> {
+async function uploadFileAlternative(accessToken: string, fileData: { filename: string; content: string }): Promise<string | null> {
   try {
-    console.log('🔄 Trying alternative upload method for:', fileData.filename, 'attached to:', attachedToName || 'None');
+    console.log('🔄 Trying alternative upload method for:', fileData.filename);
     
     // Try using axios with different content type
     const axios = (await import('axios')).default;
@@ -238,10 +363,7 @@ async function uploadFileAlternative(accessToken: string, fileData: { filename: 
     formData.append('is_private', '0');
     formData.append('from_form', '1');
     
-    // Add attached_to_name if provided
-    if (attachedToName) {
-      formData.append('attached_to_name', attachedToName);
-    }
+    // Don't attach to document initially - upload as standalone file
     
     const response = await axios.post(`${FRAPPE_BASE_URL}/api/method/upload_file`, formData, {
       headers: {
@@ -313,7 +435,7 @@ export async function createProperty(accessToken: string, data: any): Promise<{ 
     // Upload files and collect URLs
     if (data.image && typeof data.image === 'object' && data.image.content) {
       console.log('🖼️ Uploading main image...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image, createdPropertyName);
+      const fileUrl = await uploadFileToFrappe(accessToken, data.image);
       if (fileUrl) {
         updateData.image = fileUrl;
         console.log('✅ Main image uploaded:', fileUrl);
@@ -324,7 +446,7 @@ export async function createProperty(accessToken: string, data: any): Promise<{ 
     
     if (data.image_1 && typeof data.image_1 === 'object' && data.image_1.content) {
       console.log('🖼️ Uploading image 1...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_1, createdPropertyName);
+      const fileUrl = await uploadFileToFrappe(accessToken, data.image_1);
       if (fileUrl) {
         updateData.image_1 = fileUrl;
         console.log('✅ Image 1 uploaded:', fileUrl);
@@ -335,7 +457,7 @@ export async function createProperty(accessToken: string, data: any): Promise<{ 
     
     if (data.image_2 && typeof data.image_2 === 'object' && data.image_2.content) {
       console.log('🖼️ Uploading image 2...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_2, createdPropertyName);
+      const fileUrl = await uploadFileToFrappe(accessToken, data.image_2);
       if (fileUrl) {
         updateData.image_2 = fileUrl;
         console.log('✅ Image 2 uploaded:', fileUrl);
@@ -346,7 +468,7 @@ export async function createProperty(accessToken: string, data: any): Promise<{ 
     
     if (data.image_3 && typeof data.image_3 === 'object' && data.image_3.content) {
       console.log('🖼️ Uploading image 3...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_3, createdPropertyName);
+      const fileUrl = await uploadFileToFrappe(accessToken, data.image_3);
       if (fileUrl) {
         updateData.image_3 = fileUrl;
         console.log('✅ Image 3 uploaded:', fileUrl);
@@ -357,7 +479,7 @@ export async function createProperty(accessToken: string, data: any): Promise<{ 
     
     if (data.image_4 && typeof data.image_4 === 'object' && data.image_4.content) {
       console.log('🖼️ Uploading image 4...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_4, createdPropertyName);
+      const fileUrl = await uploadFileToFrappe(accessToken, data.image_4);
       if (fileUrl) {
         updateData.image_4 = fileUrl;
         console.log('✅ Image 4 uploaded:', fileUrl);
@@ -405,6 +527,15 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
     // Extract name from data
     const { name, ...propertyData } = data;
     
+    // Validate name parameter
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      console.error('❌ Invalid property name:', name);
+      return { success: false, error: 'Invalid property name' };
+    }
+    
+    const propertyName = name.trim();
+    console.log('✅ Valid property name:', propertyName);
+    
     // Separate file objects from other data
     const filesToUpload: any = {};
     const dataToUpdate: any = {};
@@ -447,7 +578,7 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
         content: fileData.split(',')[1] // Remove the data:image/jpeg;base64, prefix
       };
       
-      const fileUrl = await uploadFileToFrappe(accessToken, uploadData, name);
+      const fileUrl = await uploadFileToFrappe(accessToken, uploadData);
       if (fileUrl) {
         dataToUpdate[fieldName] = fileUrl;
         console.log(`✅ ${fieldName} uploaded:`, fileUrl);
@@ -464,7 +595,7 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
       return { success: true, data: null };
     }
     
-    const response = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property/${name}`, {
+    const response = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property/${propertyName}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -1364,6 +1495,163 @@ export async function getRecentActivities(accessToken: string): Promise<any[]> {
   } catch (error) {
     console.error('❌ Error fetching recent activities:', error);
     throw error;
+  }
+}
+
+export async function updateUserProfile(accessToken: string, data: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    console.log('Updating user profile:', data);
+    
+    // Use the resource API instead of frappe.client.save for better authentication
+    const response = await axios.put(`${FRAPPE_BASE_URL}/api/resource/User/${data.name}`, {
+      data: {
+        full_name: data.full_name,
+        email: data.email,
+        mobile_no: data.mobile_no,
+        location: data.location,
+        bio: data.bio,
+      }
+    }, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+    });
+    
+    console.log('User profile update response:', response.data);
+    
+    const responseData = response.data as { data?: any };
+    
+    if (responseData && responseData.data) {
+      return {
+        success: true,
+        data: responseData.data
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Failed to update user profile'
+      };
+    }
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any;
+      console.error('Response status:', axiosError.response?.status);
+      console.error('Response data:', axiosError.response?.data);
+      
+      const errorData = axiosError.response?.data as { message?: string };
+      
+      return {
+        success: false,
+        error: errorData?.message || 'Failed to update user profile'
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Network error occurred while updating profile'
+    };
+  }
+}
+
+export async function changeUserPassword(accessToken: string, data: { name: string; current_password: string; new_password: string }): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('Changing user password for:', data.name);
+    
+    const response = await axios.post(`${FRAPPE_BASE_URL}/api/method/frappe.client.change_password`, {
+      old_password: data.current_password,
+      new_password: data.new_password
+    }, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+    });
+    
+    console.log('Password change response:', response.data);
+    
+    const responseData = response.data as { message?: any };
+    
+    if (responseData && responseData.message) {
+      return {
+        success: true
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Failed to change password'
+      };
+    }
+  } catch (error) {
+    console.error('Error changing password:', error);
+    
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any;
+      console.error('Response status:', axiosError.response?.status);
+      console.error('Response data:', axiosError.response?.data);
+      
+      const errorData = axiosError.response?.data as { message?: string };
+      
+      return {
+        success: false,
+        error: errorData?.message || 'Failed to change password'
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Network error occurred while changing password'
+    };
+  }
+}
+
+export async function getUserDetails(accessToken: string, userName: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    console.log('Fetching user details for:', userName);
+    
+    const response = await axios.get(`${FRAPPE_BASE_URL}/api/resource/User/${userName}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    
+    console.log('User details response:', response.data);
+    
+    const responseData = response.data as { data?: any };
+    
+    if (responseData && responseData.data) {
+      return {
+        success: true,
+        data: responseData.data
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Failed to fetch user details'
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any;
+      console.error('Response status:', axiosError.response?.status);
+      console.error('Response data:', axiosError.response?.data);
+      
+      const errorData = axiosError.response?.data as { message?: string };
+      
+      return {
+        success: false,
+        error: errorData?.message || 'Failed to fetch user details'
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Network error occurred while fetching user details'
+    };
   }
 }
   

@@ -38,7 +38,7 @@ export interface Rental {
   security_deposit?: number;
   deposit?: number;
   total_rent_tzs?: number;
-  status: 'Active' | 'Terminated' | 'Pending' | 'Expired';
+  status: 'Active' | 'Terminated' | 'Pending' | 'Expired' | 'Not Paid';
   lease_terms?: string;
   frequency?: string;
   docstatus?: number;
@@ -76,6 +76,7 @@ export interface Tenant {
   enabled?: number;
   user_type?: string;
   roles?: string[];
+  rentals?: Rental[];
 }
 
 export interface Payment {
@@ -94,6 +95,7 @@ export interface Payment {
   reference?: string;
   creation?: string;
   modified?: string;
+  tenant?: string; // Add tenant field from Payment doctype
 }
 
 export interface DashboardStats {

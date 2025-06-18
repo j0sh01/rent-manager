@@ -360,16 +360,6 @@ export const Payments = () => {
                       >
                         <Printer className="h-4 w-4" />
                       </Button>
-                      {payment.status === 'Pending' && (
-                        <Button variant="outline" size="sm">
-                          Mark Paid
-                        </Button>
-                      )}
-                      {payment.status === 'Paid' && (
-                        <Button variant="outline" size="sm">
-                          Receipt
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>

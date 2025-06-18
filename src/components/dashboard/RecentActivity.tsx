@@ -9,6 +9,9 @@ interface RecentActivityProps {
 }
 
 export const RecentActivity = ({ activities, isLoading = false }: RecentActivityProps) => {
+  // Ensure activities is always an array
+  const activitiesArray = Array.isArray(activities) ? activities : [];
+  
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'paid':
@@ -56,7 +59,7 @@ export const RecentActivity = ({ activities, isLoading = false }: RecentActivity
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {activities.length === 0 ? (
+          {activitiesArray.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-gray-400 mb-2">
                 <svg className="h-8 w-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +69,7 @@ export const RecentActivity = ({ activities, isLoading = false }: RecentActivity
               <p className="text-sm text-gray-500">No recent activity</p>
             </div>
           ) : (
-            activities.map((activity) => (
+            activitiesArray.map((activity) => (
               <div key={activity.id} className="flex items-start space-x-4 p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{activity.title}</p>
