@@ -4,6 +4,14 @@ export const FRAPPE_BASE_URL = 'http://localhost:8000';
 const CLIENT_ID = '6qqbee8sj8';
 const REDIRECT_URI = 'http://localhost:8080/auth/callback'; 
 
+// Helper function to get auth headers
+function getAuthHeaders(accessToken: string) {
+  return {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  };
+}
+
 // Helper function to format image URLs from Frappe
 export function formatFrappeImageUrl(imagePath: string | undefined): string | undefined {
   if (!imagePath) return undefined;
@@ -269,64 +277,34 @@ async function uploadFileToFrappe(accessToken: string, fileData: { filename: str
   try {
     console.log('📤 Uploading file to Frappe:', fileData.filename, 'attached to:', attachedToName || 'None');
     
-    // Create form data for file upload
-    const formData = new FormData();
-    
-    // Convert base64 to blob
-    const byteCharacters = atob(fileData.content);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'image/jpeg' });
-    
-    formData.append('file', blob, fileData.filename);
-    formData.append('doctype', 'Property');
-    formData.append('fieldname', 'image');
-    formData.append('is_private', '0');
-    formData.append('from_form', '1');
-    
-    // Don't attach to document initially - upload as standalone file
-    // We'll update the Property document with the file URL separately
-    
-    console.log('📤 Form data prepared:', {
-      filename: fileData.filename,
-      doctype: 'Property',
-      fieldname: 'image',
-      is_private: '0',
-      from_form: '1',
-      blobSize: blob.size,
-      blobType: blob.type
-    });
-    
-    const response = await fetch(`${FRAPPE_BASE_URL}/api/method/upload_file`, {
+    // Use custom API endpoint that can be whitelisted
+    const response = await fetch(`${FRAPPE_BASE_URL}/api/method/rents.rental_management_system.api.upload_property_file`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
       },
-      body: formData
+      body: JSON.stringify({
+        filename: fileData.filename,
+        filedata: fileData.content,
+        doctype: 'Property',
+        docname: attachedToName || '',
+        is_private: 0
+      })
     });
     
     console.log('📤 Upload response status:', response.status);
-    console.log('📤 Upload response headers:', Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ File upload failed:', response.status, errorText);
-      
-      // Try alternative upload method if 417 error
-      if (response.status === 417) {
-        console.log('🔄 Trying alternative upload method...');
-        return await uploadFileAlternative(accessToken, fileData);
-      }
-      
       return null;
     }
     
     const responseData = await response.json();
     console.log('📤 File upload response:', responseData);
     
+    // The custom API should return: { message: { file_url: string } }
     if (responseData && responseData.message && responseData.message.file_url) {
       console.log('✅ File uploaded successfully:', responseData.message.file_url);
       return responseData.message.file_url;
@@ -387,145 +365,129 @@ async function uploadFileAlternative(accessToken: string, fileData: { filename: 
   }
 }
 
-export async function createProperty(accessToken: string, data: any): Promise<{ success: boolean; data?: any; error?: string }> {
+export async function createProperty(accessToken: string, propertyData: any): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     console.log('Creating property with token:', accessToken);
-    console.log('Create data:', data);
+    console.log('Create data:', propertyData);
     
-    // Prepare property data without images first
-    const propertyData = { ...data };
+    // Separate file data from property data
+    const filesToUpload: any = {};
+    const cleanPropertyData: any = {};
     
-    // Remove image fields from initial creation
-    delete propertyData.image;
-    delete propertyData.image_1;
-    delete propertyData.image_2;
-    delete propertyData.image_3;
-    delete propertyData.image_4;
+    // Process each field
+    Object.keys(propertyData).forEach(key => {
+      const value = propertyData[key];
+      
+      // If it's a File object, prepare it for upload
+      if (value instanceof File) {
+        filesToUpload[key] = value;
+        console.log(`📁 File object found for ${key}:`, value.name);
+      } 
+      // If it's a string (URL) or other valid type, include it in the property data
+      else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        cleanPropertyData[key] = value;
+        console.log(`✅ Valid property field ${key}:`, value);
+      }
+      // If it's undefined/null, skip it
+      else if (value === undefined || value === null) {
+        console.log(`⏭️ Skipping ${key}: undefined/null`);
+      }
+      // If it's an object (like file data), skip it
+      else {
+        console.log(`⏭️ Skipping ${key}: invalid type`, typeof value);
+      }
+    });
     
-    console.log('Initial property data (without images):', propertyData);
+    console.log('📝 Clean property data:', cleanPropertyData);
+    console.log('📁 Files to upload:', Object.keys(filesToUpload));
     
     // Create the property first
-    const createResponse = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property`, {
+    const response = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        ...getAuthHeaders(accessToken),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        data: propertyData
+        data: cleanPropertyData
       })
     });
     
-    const createResponseData = await createResponse.json();
-    console.log('Property creation API response:', createResponseData);
+    const data = await response.json();
     
-    if (!createResponse.ok) {
-      const errorMsg = createResponseData.message || createResponseData._server_messages || 'Failed to create property';
+    if (!response.ok) {
+      const errorMsg = data.message || data._server_messages || 'Failed to create property';
       console.error('Create error:', errorMsg);
       return { success: false, error: errorMsg };
     }
     
-    // Get the created property name
-    const createdPropertyName = createResponseData.data.name;
-    console.log('✅ Property created successfully with name:', createdPropertyName);
+    console.log('✅ Property created successfully:', data.data);
+    const createdPropertyName = data.data.name;
     
-    // Now upload files and update the property
-    const updateData: any = {};
-    
-    // Upload files and collect URLs
-    if (data.image && typeof data.image === 'object' && data.image.content) {
-      console.log('🖼️ Uploading main image...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image);
-      if (fileUrl) {
-        updateData.image = fileUrl;
-        console.log('✅ Main image uploaded:', fileUrl);
-      } else {
-        console.log('❌ Failed to upload main image');
-      }
-    }
-    
-    if (data.image_1 && typeof data.image_1 === 'object' && data.image_1.content) {
-      console.log('🖼️ Uploading image 1...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_1);
-      if (fileUrl) {
-        updateData.image_1 = fileUrl;
-        console.log('✅ Image 1 uploaded:', fileUrl);
-      } else {
-        console.log('❌ Failed to upload image 1');
-      }
-    }
-    
-    if (data.image_2 && typeof data.image_2 === 'object' && data.image_2.content) {
-      console.log('🖼️ Uploading image 2...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_2);
-      if (fileUrl) {
-        updateData.image_2 = fileUrl;
-        console.log('✅ Image 2 uploaded:', fileUrl);
-      } else {
-        console.log('❌ Failed to upload image 2');
-      }
-    }
-    
-    if (data.image_3 && typeof data.image_3 === 'object' && data.image_3.content) {
-      console.log('🖼️ Uploading image 3...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_3);
-      if (fileUrl) {
-        updateData.image_3 = fileUrl;
-        console.log('✅ Image 3 uploaded:', fileUrl);
-      } else {
-        console.log('❌ Failed to upload image 3');
-      }
-    }
-    
-    if (data.image_4 && typeof data.image_4 === 'object' && data.image_4.content) {
-      console.log('🖼️ Uploading image 4...');
-      const fileUrl = await uploadFileToFrappe(accessToken, data.image_4);
-      if (fileUrl) {
-        updateData.image_4 = fileUrl;
-        console.log('✅ Image 4 uploaded:', fileUrl);
-      } else {
-        console.log('❌ Failed to upload image 4');
-      }
-    }
-    
-    // Update the property with file URLs if any files were uploaded
-    if (Object.keys(updateData).length > 0) {
-      console.log('🔄 Updating property with file URLs:', updateData);
+    // Upload files and update the property
+    if (Object.keys(filesToUpload).length > 0) {
+      console.log('🖼️ Uploading files for property:', createdPropertyName);
       
-      const updateResponse = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property/${createdPropertyName}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          data: updateData
-        })
-      });
+      const updateData: any = {};
       
-      const updateResponseData = await updateResponse.json();
-      console.log('Property update with images API response:', updateResponseData);
+      // Upload each file
+      for (const [fieldName, file] of Object.entries(filesToUpload)) {
+        console.log(`🖼️ Uploading ${fieldName}...`);
+        
+        // Convert File to base64
+        const fileData = await fileToBase64(file as File);
+        const uploadData = {
+          filename: (file as File).name,
+          content: fileData.split(',')[1] // Remove the data:image/jpeg;base64, prefix
+        };
+        
+        // Upload file and attach to the property
+        const fileUrl = await uploadFileToFrappe(accessToken, uploadData, createdPropertyName);
+        if (fileUrl) {
+          updateData[fieldName] = fileUrl;
+          console.log(`✅ ${fieldName} uploaded:`, fileUrl);
+        } else {
+          console.log(`❌ Failed to upload ${fieldName}`);
+        }
+      }
       
-      if (!updateResponse.ok) {
-        console.log('⚠️ Property created but image update failed:', updateResponseData.message);
-        // Still return success since the property was created
+      // Update the property with file URLs if any files were uploaded
+      if (Object.keys(updateData).length > 0) {
+        console.log('🔄 Updating property with file URLs:', updateData);
+        
+        const updateResponse = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property/${createdPropertyName}`, {
+          method: 'PUT',
+          headers: {
+            ...getAuthHeaders(accessToken),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        const updateResponseData = await updateResponse.json();
+        console.log('Property update with images API response:', updateResponseData);
+        
+        if (!updateResponse.ok) {
+          console.log('⚠️ Property created but image update failed:', updateResponseData.message);
+          // Still return success since the property was created
+        }
       }
     }
     
-    return { success: true, data: createResponseData.data };
+    return { success: true, data: data.data };
   } catch (error) {
-    console.error('Error creating property:', error);
+    console.error("Error creating property:", error);
     return { success: false, error: 'Network error occurred' };
   }
 }
 
-export async function updateProperty(accessToken: string, data: any): Promise<{ success: boolean; data?: any; error?: string }> {
+export async function updateProperty(accessToken: string, propertyData: any): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     console.log('Updating property with token:', accessToken);
-    console.log('Update data:', data);
+    console.log('Update data:', propertyData);
     
     // Extract name from data
-    const { name, ...propertyData } = data;
+    const { name, ...dataToUpdate } = propertyData;
     
     // Validate name parameter
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -538,11 +500,11 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
     
     // Separate file objects from other data
     const filesToUpload: any = {};
-    const dataToUpdate: any = {};
+    const filteredData: any = {};
     
     // Process each field
-    Object.keys(propertyData).forEach(key => {
-      const value = propertyData[key];
+    Object.keys(dataToUpdate).forEach(key => {
+      const value = dataToUpdate[key];
       
       // If it's a File object, prepare it for upload
       if (value instanceof File) {
@@ -551,8 +513,8 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
       } 
       // If it's a string (URL) or other valid type, include it in the update
       else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        dataToUpdate[key] = value;
-        console.log(`✅ Valid data for ${key}:`, value);
+        filteredData[key] = value;
+        console.log(`✅ Valid field ${key}:`, value);
       }
       // If it's undefined/null, skip it
       else if (value === undefined || value === null) {
@@ -564,33 +526,34 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
       }
     });
     
-    console.log('Files to upload:', Object.keys(filesToUpload));
-    console.log('Data to update:', dataToUpdate);
+    console.log('📁 Files to upload:', Object.keys(filesToUpload));
+    console.log('📝 Data to update:', filteredData);
     
     // Upload files first and get URLs
     for (const [fieldName, file] of Object.entries(filesToUpload)) {
       console.log(`🖼️ Uploading ${fieldName}...`);
       
-      // Convert File to the format expected by uploadFileToFrappe
+      // Convert File to base64
       const fileData = await fileToBase64(file as File);
       const uploadData = {
         filename: (file as File).name,
         content: fileData.split(',')[1] // Remove the data:image/jpeg;base64, prefix
       };
       
-      const fileUrl = await uploadFileToFrappe(accessToken, uploadData);
+      // Upload file and attach to the property
+      const fileUrl = await uploadFileToFrappe(accessToken, uploadData, propertyName);
       if (fileUrl) {
-        dataToUpdate[fieldName] = fileUrl;
+        filteredData[fieldName] = fileUrl;
         console.log(`✅ ${fieldName} uploaded:`, fileUrl);
       } else {
         console.log(`❌ Failed to upload ${fieldName}`);
       }
     }
     
-    console.log('Final data to update:', dataToUpdate);
+    console.log('📝 Final data to update:', filteredData);
     
     // Only update if we have data to update
-    if (Object.keys(dataToUpdate).length === 0) {
+    if (Object.keys(filteredData).length === 0) {
       console.log('⚠️ No valid data to update');
       return { success: true, data: null };
     }
@@ -598,26 +561,24 @@ export async function updateProperty(accessToken: string, data: any): Promise<{ 
     const response = await fetch(`${FRAPPE_BASE_URL}/api/resource/Property/${propertyName}`, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        ...getAuthHeaders(accessToken),
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        data: dataToUpdate
-      })
+      body: JSON.stringify(filteredData)
     });
     
-    const responseData = await response.json();
-    console.log('Property update API response:', responseData);
+    const data = await response.json();
     
     if (!response.ok) {
-      const errorMsg = responseData.message || responseData._server_messages || 'Failed to update property';
+      const errorMsg = data.message || data._server_messages || 'Failed to update property';
       console.error('Update error:', errorMsg);
       return { success: false, error: errorMsg };
     }
     
-    return { success: true, data: responseData.data };
+    console.log('✅ Property updated successfully:', data.data);
+    return { success: true, data: data.data };
   } catch (error) {
-    console.error('Error updating property:', error);
+    console.error("Error updating property:", error);
     return { success: false, error: 'Network error occurred' };
   }
 }

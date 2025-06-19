@@ -325,7 +325,7 @@ export const Rentals = () => {
       </div>
 
       {/* Debug section - remove this later */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* {process.env.NODE_ENV === 'development' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <h3 className="font-semibold text-yellow-800 mb-2">Debug Info:</h3>
           <p className="text-sm text-yellow-700">
@@ -350,7 +350,7 @@ export const Rentals = () => {
             </details>
           )}
         </div>
-      )}
+      )} */}
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="flex-1 max-w-md">

@@ -1,12 +1,20 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Building, Home, CreditCard, Users } from 'lucide-react';
+import { Building, Home, CreditCard, Users, Plus, User, Eye } from 'lucide-react';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/useAuth';
+import { CreatePropertyModal } from '@/components/CreatePropertyModal';
+import { AddTenantModal } from '@/components/AddTenantModal';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 export const Dashboard = () => {
+  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
+  const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const { isAuthenticated, accessToken } = useAuth();
+  const navigate = useNavigate();
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -25,6 +33,20 @@ export const Dashboard = () => {
     },
     enabled: isAuthenticated,
   });
+
+  const handlePropertySuccess = () => {
+    // Refresh dashboard stats
+    window.location.reload();
+  };
+
+  const handleTenantSuccess = () => {
+    // Refresh dashboard stats
+    window.location.reload();
+  };
+
+  const handleViewPayments = () => {
+    navigate('/payments');
+  };
 
   if (!isAuthenticated) {
     return (
@@ -120,15 +142,27 @@ export const Dashboard = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setIsPropertyModalOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
                 Add New Property
-              </button>
-              <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                Record Payment
-              </button>
-              <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
-                Create Rental Agreement
-              </button>
+              </Button>
+              <Button 
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => setIsTenantModalOpen(true)}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Add New Tenant
+              </Button>
+              <Button 
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={handleViewPayments}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Payments
+              </Button>
             </div>
           </div>
 
@@ -155,6 +189,19 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <CreatePropertyModal
+        isOpen={isPropertyModalOpen}
+        onClose={() => setIsPropertyModalOpen(false)}
+        onSuccess={handlePropertySuccess}
+      />
+      
+      <AddTenantModal
+        isOpen={isTenantModalOpen}
+        onClose={() => setIsTenantModalOpen(false)}
+        onSuccess={handleTenantSuccess}
+      />
     </div>
   );
 };
